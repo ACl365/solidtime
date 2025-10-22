@@ -4,6 +4,10 @@ Contributions are greatly apprecited, please make sure to read the rules and vis
 
 ## Rules
 
+### No Jira, GitHub first
+
+We do not use Jira or external ticketing systems. Please use GitHub Issues for bugs and GitHub Discussions for feature requests. Document decisions in PR descriptions and in-repo docs. Avoid external wikis; prefer docs/ within the repo.
+
 ### Issues for Bugs, Discussions for Feature requests
 
 In order to keep the issues of the repository clean we decided to only use them for bugs. Feature Requests and enhancement are handled in discussions. This also helps us to see which feature requests are popular as they can be upvoted. 
