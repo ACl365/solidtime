@@ -301,6 +301,16 @@ const page = usePage<{
                     </div>
                     <slot v-else />
                 </main>
+
+                <footer class="border-t border-default-background-separator bg-default-background text-xs text-text-tertiary">
+                    <MainContainer>
+                        <div class="py-3 flex flex-wrap items-center gap-2">
+                            <span>Pia Time • AGPL v3</span>
+                            <span>•</span>
+                            <a class="underline hover:text-text-secondary" href="https://github.com/ACl365/pia-time" target="_blank" rel="noopener noreferrer">Source code</a>
+                        </div>
+                    </MainContainer>
+                </footer>
             </div>
         </div>
     </div>
