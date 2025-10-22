@@ -2,12 +2,18 @@
 
 Note: No Jira. Link GitHub issues/discussions only; keep context in-repo.
 
-<!-- Please include a summary of the change and which issue is fixed. Please also include relevant motivation and context. List any dependencies that are required for this change. -->
+- Summary:
+- Why:
 
-- Fixes #XXXX (GitHub issue number)
+## Checklist
+- [ ] Ran local checks (scripts/local_check.sh or scripts/local_check.ps1)
+- [ ] Included gating notes (planner.enabled)
+- [ ] Added/updated docs as needed (ARCHITECTURE.md, AGENTS.md)
+- [ ] Tests pass locally (phpunit)
 
-## Checklist (DO NOT REMOVE)
+## Testing notes
+- Disabled: PLANNER_ENABLED=false
+- Enabled: PLANNER_ENABLED=true
 
-- [ ] I read the [contributing guide](https://github.com/solidtime-io/solidtime/blob/main/CONTRIBUTING.md)
-- [ ] I signed the [Contributor License Agreement](https://cla-assistant.io/solidtime-io/solidtime).
-- [ ] I commented my code, particularly in hard-to-understand areas
+## Release notes
+- 
