@@ -1,0 +1,470 @@
+From a5b3ae21b3cea0563bee604e33fa554322563f31 Mon Sep 17 00:00:00 2001
+From: ACl365 <alexanderclarke365@yahoo.com>
+Date: Wed, 22 Oct 2025 02:13:47 +0100
+Subject: [PATCH] PR1: Planner Schema + Seeds (gated). Adds
+ phase/milestone/project tables + seeders; planner config with PLANNER_ENABLED
+ flag.
+
+---
+ PR1_Schema_Seeds.md                           |  42 +++++++
+ config/planner.php                            |   3 +
+ ...23_000001_create_phase_templates_table.php |  24 ++++
+ ...00002_create_milestone_templates_table.php |  28 +++++
+ ..._23_000003_create_project_phases_table.php |  29 +++++
+ ...3_000004_create_phase_milestones_table.php |  35 ++++++
+ ...0_23_000005_create_planner_rules_table.php |  26 ++++
+ ...10_23_000006_create_user_aliases_table.php |  27 +++++
+ database/seeders/DemoProjectsSeeder.php       |  45 +++++++
+ .../PlannerCanonicalTemplateSeeder.php        | 114 ++++++++++++++++++
+ 10 files changed, 373 insertions(+)
+ create mode 100644 PR1_Schema_Seeds.md
+ create mode 100644 database/migrations/2025_10_23_000001_create_phase_templates_table.php
+ create mode 100644 database/migrations/2025_10_23_000002_create_milestone_templates_table.php
+ create mode 100644 database/migrations/2025_10_23_000003_create_project_phases_table.php
+ create mode 100644 database/migrations/2025_10_23_000004_create_phase_milestones_table.php
+ create mode 100644 database/migrations/2025_10_23_000005_create_planner_rules_table.php
+ create mode 100644 database/migrations/2025_10_23_000006_create_user_aliases_table.php
+ create mode 100644 database/seeders/DemoProjectsSeeder.php
+ create mode 100644 database/seeders/PlannerCanonicalTemplateSeeder.php
+
+diff --git a/PR1_Schema_Seeds.md b/PR1_Schema_Seeds.md
+new file mode 100644
+index 0000000..fdd519c
+--- /dev/null
++++ b/PR1_Schema_Seeds.md
+@@ -0,0 +1,42 @@
++Title: PR1 — Planner Schema + Seeds
++
++Summary
++- Introduces planner schema and seed data, gated by config('planner.enabled') via PLANNER_ENABLED (fallback to PIA_ENABLED).
++- Adds canonical planner templates and demo projects as per spec.
++
++Migrations (added)
++- 2025_10_21_120000_add_due_at_and_is_milestone_to_tasks_table.php
++- 2025_10_21_121000_create_project_phase_templates_table.php
++- 2025_10_21_121100_create_project_milestone_templates_table.php
++- 2025_10_22_000050_add_milestone_id_to_time_entries_table.php
++- 2025_10_23_000001_create_phase_templates_table.php
++- 2025_10_23_000002_create_milestone_templates_table.php
++- 2025_10_23_000003_create_project_phases_table.php
++- 2025_10_23_000004_create_phase_milestones_table.php
++- 2025_10_23_000005_create_planner_rules_table.php
++- 2025_10_23_000006_create_user_aliases_table.php
++
++Seeds
++- PlannerTemplateSeeder: seeds canonical phases/milestones exactly per spec
++  • Phase 1 – Concept Design
++  • Phase 2 – Design Development
++  • Phase 3 – Specification
++  • Phase 4 – Implementation (key coordination checkpoints)
++  • Implementation (site and supplier schedule checkpoints)
++- DemoProjectsSeeder: Hendrick Avenue; Hill Rise; Shaftesbury Villas 3; Shaftesbury Villas 4; Hotham Road; Manor Road; Holly House
++- SeedProjectPlannerForAllProjectsSeeder: associates seeded templates to existing projects where applicable
++
++Feature gating
++- config/planner.php contains:
++  • enabled: env('PLANNER_ENABLED', env('PIA_ENABLED', false))
++  • default_leadtime_days and alert_window_days with env overrides
++- DatabaseSeeder triggers planner template seeding only when config('pia.enabled') and config('pia.templates.auto_seed') to preserve defaults when disabled.
++
++Acceptance
++- Default Solidtime behavior unchanged when disabled.
++- New tables are additive; existing endpoints unchanged.
++
++How to test
++- Set PIA_ENABLED=true and pia.templates.auto_seed=true then run: php artisan migrate --seed
++- Verify demo projects exist and the canonical templates are populated.
++- Set PLANNER_ENABLED=false and verify no planner UI/API is exposed.
+diff --git a/config/planner.php b/config/planner.php
+index 66d5032..e442035 100644
+--- a/config/planner.php
++++ b/config/planner.php
+@@ -1,6 +1,9 @@
+ <?php
+ 
+ return [
++    // Lead-time defaults and alert windows
++    'default_leadtime_days' => env('PLANNER_DEFAULT_LEADTIME_DAYS', 42),
++    'alert_window_days' => env('PLANNER_ALERT_WINDOW_DAYS', 10),
+     // Planner feature gate (UI/API). Defaults to PIA_ENABLED to keep a single env flag.
+     'enabled' => env('PLANNER_ENABLED', env('PIA_ENABLED', false)),
+ ];
+diff --git a/database/migrations/2025_10_23_000001_create_phase_templates_table.php b/database/migrations/2025_10_23_000001_create_phase_templates_table.php
+new file mode 100644
+index 0000000..610ae0e
+--- /dev/null
++++ b/database/migrations/2025_10_23_000001_create_phase_templates_table.php
+@@ -0,0 +1,24 @@
++<?php
++
++declare(strict_types=1);
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration {
++    public function up(): void
++    {
++        Schema::create('phase_templates', function (Blueprint $table): void {
++            $table->uuid('id')->primary();
++            $table->string('name');
++            $table->unsignedInteger('position')->default(0);
++            $table->timestamps();
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('phase_templates');
++    }
++};
+diff --git a/database/migrations/2025_10_23_000002_create_milestone_templates_table.php b/database/migrations/2025_10_23_000002_create_milestone_templates_table.php
+new file mode 100644
+index 0000000..e792454
+--- /dev/null
++++ b/database/migrations/2025_10_23_000002_create_milestone_templates_table.php
+@@ -0,0 +1,28 @@
++<?php
++
++declare(strict_types=1);
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration {
++    public function up(): void
++    {
++        Schema::create('milestone_templates', function (Blueprint $table): void {
++            $table->uuid('id')->primary();
++            $table->uuid('phase_template_id');
++            $table->string('name');
++            $table->unsignedInteger('position')->default(0);
++            $table->timestamps();
++
++            $table->foreign('phase_template_id')->references('id')->on('phase_templates')->cascadeOnDelete();
++            $table->index('phase_template_id');
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('milestone_templates');
++    }
++};
+diff --git a/database/migrations/2025_10_23_000003_create_project_phases_table.php b/database/migrations/2025_10_23_000003_create_project_phases_table.php
+new file mode 100644
+index 0000000..83b1234
+--- /dev/null
++++ b/database/migrations/2025_10_23_000003_create_project_phases_table.php
+@@ -0,0 +1,29 @@
++<?php
++
++declare(strict_types=1);
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration {
++    public function up(): void
++    {
++        Schema::create('project_phases', function (Blueprint $table): void {
++            $table->uuid('id')->primary();
++            $table->uuid('project_id');
++            $table->string('name');
++            $table->unsignedInteger('seq')->default(0);
++            $table->string('status')->default('Planned'); // Planned, InProgress, Complete, Blocked
++            $table->timestamps();
++
++            $table->foreign('project_id')->references('id')->on('projects')->cascadeOnDelete();
++            $table->index('project_id');
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('project_phases');
++    }
++};
+diff --git a/database/migrations/2025_10_23_000004_create_phase_milestones_table.php b/database/migrations/2025_10_23_000004_create_phase_milestones_table.php
+new file mode 100644
+index 0000000..ab3bd33
+--- /dev/null
++++ b/database/migrations/2025_10_23_000004_create_phase_milestones_table.php
+@@ -0,0 +1,35 @@
++<?php
++
++declare(strict_types=1);
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration {
++    public function up(): void
++    {
++        Schema::create('phase_milestones', function (Blueprint $table): void {
++            $table->uuid('id')->primary();
++            $table->uuid('phase_id');
++            $table->string('name');
++            $table->unsignedInteger('seq')->default(0);
++            $table->date('planned_date')->nullable();
++            $table->date('actual_date')->nullable();
++            $table->string('status')->default('Planned'); // Planned, InProgress, Complete, Blocked
++            $table->uuid('responsible_user_id')->nullable();
++            $table->string('responsible_alias')->nullable();
++            $table->text('notes')->nullable();
++            $table->timestamps();
++
++            $table->foreign('phase_id')->references('id')->on('project_phases')->cascadeOnDelete();
++            $table->index('phase_id');
++            $table->index(['phase_id', 'seq']);
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('phase_milestones');
++    }
++};
+diff --git a/database/migrations/2025_10_23_000005_create_planner_rules_table.php b/database/migrations/2025_10_23_000005_create_planner_rules_table.php
+new file mode 100644
+index 0000000..0e9e3ea
+--- /dev/null
++++ b/database/migrations/2025_10_23_000005_create_planner_rules_table.php
+@@ -0,0 +1,26 @@
++<?php
++
++declare(strict_types=1);
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration {
++    public function up(): void
++    {
++        Schema::create('planner_rules', function (Blueprint $table): void {
++            $table->uuid('id')->primary();
++            $table->string('name');
++            $table->integer('offset_days');
++            $table->json('applies_to')->nullable(); // e.g., ["worktops","curtains","carpets"] or tag IDs
++            $table->boolean('active')->default(true);
++            $table->timestamps();
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('planner_rules');
++    }
++};
+diff --git a/database/migrations/2025_10_23_000006_create_user_aliases_table.php b/database/migrations/2025_10_23_000006_create_user_aliases_table.php
+new file mode 100644
+index 0000000..c95c590
+--- /dev/null
++++ b/database/migrations/2025_10_23_000006_create_user_aliases_table.php
+@@ -0,0 +1,27 @@
++<?php
++
++declare(strict_types=1);
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration {
++    public function up(): void
++    {
++        Schema::create('user_aliases', function (Blueprint $table): void {
++            $table->uuid('id')->primary();
++            $table->string('alias')->unique();
++            $table->uuid('user_id');
++            $table->timestamps();
++
++            $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
++            $table->index('user_id');
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('user_aliases');
++    }
++};
+diff --git a/database/seeders/DemoProjectsSeeder.php b/database/seeders/DemoProjectsSeeder.php
+new file mode 100644
+index 0000000..926e6e4
+--- /dev/null
++++ b/database/seeders/DemoProjectsSeeder.php
+@@ -0,0 +1,45 @@
++<?php
++
++declare(strict_types=1);
++
++namespace Database\Seeders;
++
++use App\Models\Client;
++use App\Models\Organization;
++use App\Models\Project;
++use Illuminate\Database\Seeder;
++use Illuminate\Support\Str;
++
++class DemoProjectsSeeder extends Seeder
++{
++    public function run(): void
++    {
++        // Ensure a demo organization exists
++        $organization = Organization::query()->first() ?? Organization::factory()->create([
++            'name' => 'PiaDesign Demo',
++        ]);
++        $client = Client::query()->whereBelongsTo($organization, 'organization')->first() ?? Client::factory()->for($organization, 'organization')->create([
++            'name' => 'PiaDesign Client',
++        ]);
++
++        $projects = [
++            'Hendrick Avenue',
++            'Hill Rise',
++            'Shaftesbury Villas 3',
++            'Shaftesbury Villas 4',
++            'Hotham Road',
++            'Manor Road',
++            'Holly House',
++        ];
++
++        foreach ($projects as $name) {
++            Project::query()->firstOrCreate([
++                'organization_id' => $organization->getKey(),
++                'name' => $name,
++            ], [
++                'client_id' => $client->getKey(),
++                'color' => '#3b82f6',
++            ]);
++        }
++    }
++}
+diff --git a/database/seeders/PlannerCanonicalTemplateSeeder.php b/database/seeders/PlannerCanonicalTemplateSeeder.php
+new file mode 100644
+index 0000000..18bbe6f
+--- /dev/null
++++ b/database/seeders/PlannerCanonicalTemplateSeeder.php
+@@ -0,0 +1,114 @@
++<?php
++
++declare(strict_types=1);
++
++namespace Database\Seeders;
++
++use Illuminate\Database\Seeder;
++use Illuminate\Support\Facades\DB;
++use Illuminate\Support\Str;
++
++class PlannerCanonicalTemplateSeeder extends Seeder
++{
++    public function run(): void
++    {
++        DB::transaction(function (): void {
++            DB::table('milestone_templates')->delete();
++            DB::table('phase_templates')->delete();
++
++            $position = 1;
++            $phases = [
++                'Phase 1 – Concept Design' => [
++                    'Initial Site Visit',
++                    'Welcome Email',
++                    'Concepts / Layouts Sent',
++                    'Concept Meeting 1',
++                    'Revisions Sent',
++                    'Concept Meeting 2',
++                    'Phase 1 Signed Off',
++                ],
++                'Phase 2 – Design Development' => [
++                    'Joinery & Elec Drawings Sent',
++                    'DD Presentation Sent',
++                    'DD Meeting 1',
++                    'Revisions Sent',
++                    'DD Meeting 2',
++                    'Drawing & Design Updates Sent',
++                    'Phase 2 Signed off',
++                ],
++                'Phase 3 – Specification' => [
++                    'Budget Summary Sent',
++                    'Spec Meeting 1 (Budget Review)',
++                    'Spec Presentation Sent',
++                    'Samples Meeting',
++                    'Finishes Schedule Sent',
++                    'Joinery Review Meeting',
++                    'Final Drawing Pack Issued',
++                    'Spec Review Meeting',
++                    'Phase 3 Signed Off',
++                ],
++                'Phase 4 – Implementation (key coordination checkpoints)' => [
++                    'Procurement Agreement Signed',
++                    'Coordination Agreement Signed',
++                    'Handover Meeting',
++                    'Procurement Supply Agreed',
++                    'Project Timelines Agreed',
++                ],
++                'Implementation (site and supplier schedule checkpoints)' => [
++                    'Estimated Completion Date',
++                    'First Fix Plumb/Elec Required',
++                    'Wood Flooring Required',
++                    'Second Fix Plumbing Required',
++                    'Decorative Lighting Required',
++                    'Plastering Completed',
++                    'Hard Flooring Laid',
++                    'Paints & Grouts Confirmed',
++                    'Joinery Templating',
++                    'Curtain Templating',
++                    'Carpet Templating',
++                    'Bespoke Headboard Measure',
++                    'Appliances to Joiners',
++                    'Sinks and Taps to Site',
++                    'Furniture Access Check',
++                    'Long Lead Time Furniture Ordered',
++                    'Curtain Check Measure',
++                    'Joinery Installation',
++                    'Kitchen Installation',
++                    'Worktop Templating',
++                    'Joinery Handles To Joiners',
++                    '2nd Fix Plumb / Elec Completed',
++                    'Worktop Installation',
++                    'Carpet Installation',
++                    'Curtain Installation',
++                    'Snagging',
++                    'Furniture Installation',
++                    'Receipts & Aftercare',
++                    'Review',
++                    'Photoshoot',
++                ],
++            ];
++
++            foreach ($phases as $phaseName => $milestones) {
++                $phaseId = (string) Str::uuid();
++                DB::table('phase_templates')->insert([
++                    'id' => $phaseId,
++                    'name' => $phaseName,
++                    'position' => $position++,
++                    'created_at' => now(),
++                    'updated_at' => now(),
++                ]);
++                $mPos = 1;
++                foreach ($milestones as $name) {
++                    DB::table('milestone_templates')->insert([
++                        'id' => (string) Str::uuid(),
++                        'phase_template_id' => $phaseId,
++                        'name' => $name,
++                        'position' => $mPos++,
++                        'created_at' => now(),
++                        'updated_at' => now(),
++                    ]);
++                }
++            }
++        });
++    }
++}
+-- 
+2.49.0.windows.1
+

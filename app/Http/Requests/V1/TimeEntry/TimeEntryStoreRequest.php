@@ -92,6 +92,12 @@ class TimeEntryStoreRequest extends BaseFormRequest
                     return $builder->whereBelongsTo($this->organization, 'organization');
                 })->uuid(),
             ],
+            // Optional link to planner milestone (no FK enforced here)
+            'milestone_id' => [
+                'nullable',
+                'string',
+                'uuid',
+            ],
         ];
     }
 }

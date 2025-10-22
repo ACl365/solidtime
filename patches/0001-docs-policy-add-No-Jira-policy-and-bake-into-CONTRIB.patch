@@ -1,0 +1,153 @@
+From c1fd9bdbaf0a15a113d0a5eb076981dc3b4bd34c Mon Sep 17 00:00:00 2001
+From: ACl365 <alexanderclarke365@yahoo.com>
+Date: Wed, 22 Oct 2025 02:35:40 +0100
+Subject: [PATCH] docs(policy): add No Jira policy and bake into CONTRIBUTING,
+ README, PR template; add PR5 body
+
+---
+ .github/PULL_REQUEST_TEMPLATE.md |  2 +
+ CONTRIBUTING.md                  |  4 ++
+ POLICY_NO_JIRA.md                | 12 ++++++
+ PR5_Groundwork_Gating.md         | 70 ++++++++++++++++++++++++++++++++
+ README.md                        |  2 +
+ 5 files changed, 90 insertions(+)
+ create mode 100644 POLICY_NO_JIRA.md
+ create mode 100644 PR5_Groundwork_Gating.md
+
+diff --git a/.github/PULL_REQUEST_TEMPLATE.md b/.github/PULL_REQUEST_TEMPLATE.md
+index 88b18c4..65f4ba1 100644
+--- a/.github/PULL_REQUEST_TEMPLATE.md
++++ b/.github/PULL_REQUEST_TEMPLATE.md
+@@ -1,5 +1,7 @@
+ ## What does this PR do?
+ 
++Note: No Jira. Link GitHub issues/discussions only; keep context in-repo.
++
+ <!-- Please include a summary of the change and which issue is fixed. Please also include relevant motivation and context. List any dependencies that are required for this change. -->
+ 
+ - Fixes #XXXX (GitHub issue number)
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index 4535267..d47cc9c 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -4,6 +4,10 @@ # Contributing to solidtime
+ 
+ ## Rules
+ 
++### No Jira, GitHub first
++
++We do not use Jira or external ticketing systems. Please use GitHub Issues for bugs and GitHub Discussions for feature requests. Document decisions in PR descriptions and in-repo docs. Avoid external wikis; prefer docs/ within the repo.
++
+ ### Issues for Bugs, Discussions for Feature requests
+ 
+ In order to keep the issues of the repository clean we decided to only use them for bugs. Feature Requests and enhancement are handled in discussions. This also helps us to see which feature requests are popular as they can be upvoted. 
+diff --git a/POLICY_NO_JIRA.md b/POLICY_NO_JIRA.md
+new file mode 100644
+index 0000000..48f20e2
+--- /dev/null
++++ b/POLICY_NO_JIRA.md
+@@ -0,0 +1,12 @@
++# No Jira Policy
++
++We do not use Jira or any external ticketing system for this repository.
++
++- No Jira tickets will be created for any work items.
++- All planning, tracking, and discussion are done in GitHub:
++  - Use GitHub Issues for bugs and tasks.
++  - Use GitHub Discussions for feature requests and broader design conversations.
++  - Reference issues in PRs with GitHub keywords (e.g., "Closes #123").
++- Confluence is not used for documentation. Prefer in-repo docs (e.g., README, docs/), or GitHub Discussions for long-form notes.
++
++Rationale: keep everything close to the code, transparent, and versioned.
+diff --git a/PR5_Groundwork_Gating.md b/PR5_Groundwork_Gating.md
+new file mode 100644
+index 0000000..6354729
+--- /dev/null
++++ b/PR5_Groundwork_Gating.md
+@@ -0,0 +1,70 @@
++# PR5 groundwork: planner gating + tests
++
++Labels: feature, gated, planner, minimal-diff
++Status: Draft
++Base: main (adjust if repo uses `develop`)
++Head: pr/planner-pr5
++
++## Summary
++This PR adds planner gating across controllers, resources, and aggregation services, plus unit tests validating behavior in both modes. When `planner.enabled=false`, Solidtime behavior remains unchanged (API shapes, aggregations, exports). When enabled, planner-specific filters and groupings are applied.
++
++## Scope
++- Controllers: apply planner-only filters only when planner is enabled. Controllers ignore milestone/phase filters when disabled.
++- API Resources: `TimeEntryResource` hides `milestone_id` when planner is disabled.
++- Aggregation: services ignore Phase/Milestone grouping when planner is disabled; with planner enabled, Phase/Milestone grouping is available.
++- Unit tests: added to cover enabled vs disabled paths.
++
++## Gating
++- Feature flag: `planner.enabled` (falls back to `PIA_ENABLED`).
++- Config: `config/planner.php` includes `default_leadtime_days=42` and `alert_window_days=10` (overridable via `.env`).
++- Defaults: When disabled, no UI/API shape changes and Solidtime remains unchanged.
++
++## Test Matrix
++- Disabled mode (`PLANNER_ENABLED=false` or `PIA_ENABLED=false`):
++  - Controllers ignore planner-only filters (`milestones_only`, `phase_prefix`, `milestone_ids`).
++  - Resources: `milestone_id` omitted from payloads.
++  - Aggregations: no Phase/Milestone grouping; shapes identical to baseline Solidtime.
++- Enabled mode (`PLANNER_ENABLED=true` or `PIA_ENABLED=true`):
++  - Controllers: planner filters applied.
++  - Aggregations: support Phase/Milestone grouping.
++  - Ensure no changes outside planner-specific flows.
++
++## Verification Steps
++1) Install deps and configure env
++```
++cp .env.example .env
++composer install
++php artisan key:generate
++```
++2) Run migrations and seed (optional for fuller data)
++```
++PIA_ENABLED=true PIA_TEMPLATES_AUTO_SEED=true php artisan migrate --seed
++```
++3) Disabled mode checks
++```
++export PLANNER_ENABLED=false # or PIA_ENABLED=false
++composer test
++```
++- Confirm resources omit `milestone_id` and aggregations do not include Phase/Milestone grouping.
++
++4) Enabled mode checks
++```
++export PLANNER_ENABLED=true # or PIA_ENABLED=true
++composer test
++```
++- Confirm controllers accept planner-only filters and aggregation exposes Phase/Milestone groupings.
++
++## Release Notes
++- Added planner gating for milestone/phase filters and groupings; no destructive changes.
++- Backward compatible when disabled.
++
++## Migration Note
++- No destructive schema changes. Migrations from PR1 create planner tables; this PR does not alter schema.
++
++## Related / Follow-ups
++- PR1: "Planner Schema + Seeds (gated)"
++- PR2: "Planner UI + API scaffold + materialization (gated)"
++- PR3 (follow-up): Import backend + `ImportPlanner.vue`
++- PR4 (follow-up): Jobs + Slack digest
++- PR5 (follow-up): Frontend toggles + start-timer from milestones
++- PR6 (follow-up): AGPL footer "Source code" link to running version
+diff --git a/README.md b/README.md
+index c175f09..e4f4e78 100644
+--- a/README.md
++++ b/README.md
+@@ -35,6 +35,8 @@ ## Issues & Feature Requests
+ 
+ ## Contributing
+ 
++No Jira: we use GitHub Issues and Discussions as the single source of truth. Document decisions in PRs and in the repository (docs/).
++
+ Please open an issue or start a discussion and wait for approval before submitting a pull request. This does not apply to tiny fixes or changes however, please keep in mind that we might not merge PRs for various reasons. 
+ 
+ Please read the [CONTRIBUTING.md](./CONTRIBUTING.md) before sumbitting a Pull Request.
+-- 
+2.49.0.windows.1
+

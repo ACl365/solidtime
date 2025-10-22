@@ -79,6 +79,11 @@ class TimeEntryUpdateRequest extends BaseFormRequest
                 'string',
                 'max:5000',
             ],
+            'milestone_id' => [
+                'nullable',
+                'string',
+                'uuid',
+            ],
             // List of tag IDs
             'tags' => [
                 'nullable',
