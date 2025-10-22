@@ -53,6 +53,13 @@ Please read the [CONTRIBUTING.md](./CONTRIBUTING.md) before submitting a Pull Re
 
 See [SECURITY.md](./SECURITY.md).
 
+## Local checks
+
+- macOS/Linux: `bash scripts/local_check.sh`
+- Windows: `./scripts/local_check.ps1`
+
+See also: ARCHITECTURE.md, AGENTS.md, docs/GETTING_STARTED_PIA_DESIGN.md
+
 ## License
 
 AGPL v3 — see [LICENSE.md](LICENSE.md).
